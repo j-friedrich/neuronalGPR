@@ -22,13 +22,8 @@ class BioNN:
     inducing inputs : np.ndarray (num_inducing x input_dim)
     lengthscale : array-like (input_dim)
         lengthscales of the ARD RBF-kernel
-    rectify : boolean, default True
-        whether to use a rectified unit to compute the inverse SNR (rho)
-    nonneg_wb_var : boolean, default True
-        whether to enforce nonnegativity of the weight & bias
-        for variance prediction (w^Sigma & b^Sigma)
     """
-    def __init__(self, X, Y, inducing_inputs, lengthscale, rectify=True, nonneg_wb_var=True):
+    def __init__(self, X, Y, inducing_inputs, lengthscale):
         self.X = X
         self.Y = Y
         self.inducing_inputs = inducing_inputs
@@ -53,13 +48,9 @@ class BioNN:
                         jitter *= 10
                     finally:
                         num_tries += 1
-        if nonneg_wb_var:
-            self.wb_var = np.transpose([scipy.optimize.nnls(
-                np.vstack([self._SNRinv(X), np.ones(len(X))]).T,
-                (self.mean(X) - Y)[:, a]**2)[0] for a in range(Y.shape[1])])
-        else:
-            self.wb_var = np.linalg.lstsq(np.vstack([self._SNRinv(X), np.ones(len(X))]).T,
-                                          (self.mean(X) - Y)**2, rcond=None)[0]
+        self.wb_var = np.transpose([scipy.optimize.nnls(
+            np.vstack([self._SNRinv(X), np.ones(len(X))]).T,
+            (self.mean(X) - Y)[:, a]**2)[0] for a in range(Y.shape[1])])
         self.Gaussian_noise = Foo()
         self.variance, self.Gaussian_noise.variance = self.wb_var
 
@@ -67,14 +58,11 @@ class BioNN:
         return self.kern.K(np.atleast_2d(x), self.inducing_inputs).dot(self.w_mean)
 
     def _SNRinv(self, x):
-        if self.rectify:
-            return np.maximum(1 - np.sum(self.kern.K(self.inducing_inputs, np.atleast_2d(x))**2, 0), 0)
-        else:
-            return 1 - np.sum(self.kern.K(self.inducing_inputs, np.atleast_2d(x))**2, 0)
+        return np.maximum(1 - np.sum(self.kern.K(self.inducing_inputs, np.atleast_2d(x))**2, 0), 0)
 
     def var(self, x):
         return np.maximum(np.vstack([self._SNRinv(x), np.ones(len(np.atleast_2d(x)))]).T.dot(
-            self.wb_var), 1e-6)  # 1e-12
+            self.wb_var), 1e-6)
 
     def predict(self, x):
         """Predict the function(s) at the new point(s) x. This includes the

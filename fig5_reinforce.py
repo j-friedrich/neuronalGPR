@@ -40,7 +40,7 @@ class BioNN:
     def __init__(self, X, Y, tuning):
         self.X = X
         self.Y = Y
-        self.tuning = tuning  # 
+        self.tuning = tuning
         self.K_uf = tuning(X).T
         KK = self.K_uf.dot(self.K_uf.T)
         Ky = self.K_uf.dot(Y)
@@ -151,109 +151,110 @@ def sim(run, eta_u, eta_l, eta_r, return_nn=False):
     return reinforce(Xtrain, Ytrain, Xtest, Ytest, 1100, eta_u, eta_l, eta_r, kern, return_nn)
 
 
-# Ed Snelson's example data
-X = np.genfromtxt('snelson_data/train_inputs')[:, None]
-Y = np.genfromtxt('snelson_data/train_outputs')[:, None]
-N = len(X)
+if __name__ == "__main__":
+    # Ed Snelson's example data
+    X = np.genfromtxt('snelson_data/train_inputs')[:, None]
+    Y = np.genfromtxt('snelson_data/train_outputs')[:, None]
+    N = len(X)
 
 
-# Run Reinforce or load results
-try:
-    opt_z = np.load('results/reinforce.npz', allow_pickle=True)['opt_z']
-    opt_zl = np.load('results/reinforce.npz', allow_pickle=True)['opt_zl']
-except FileNotFoundError:
-    opt_z = np.array([sim(run, .12, .0, .1) for run in range(10)])
-    opt_zl = np.array([sim(run, .1, .1, .1) for run in range(10)])
-    np.savez('results/reinforce.npz', opt_z=opt_z, opt_zl=opt_zl)
-
-
-# Plot results
-
-def plot(typ, opt_z, opt_zl, T=1000):
-    j = ('RMSE', 'NLPD').index(typ)
+    # Run Reinforce or load results
     try:
-        perf = np.load('results/performance_snelson.npz')['perf'][:, 3, :, 1 + j]
+        opt_z = np.load('results/reinforce.npz', allow_pickle=True)['opt_z']
+        opt_zl = np.load('results/reinforce.npz', allow_pickle=True)['opt_zl']
     except FileNotFoundError:
-        print('please run fig3_snelson.py first')
-
-    def d(x, pm=-1):
-        return np.mean(x, 0) + pm * np.std(x, 0) / np.sqrt(len(x) - 1)
-
-    for c, label in ((0, 'GP'), (1, 'VFE')):
-        plt.axhline(np.mean(perf[:, c]), c='C{}'.format(c), label=label)
-        plt.fill_between((0, T), [d(perf[:, c], -1)] * 2, [d(perf[:, c], +1)] * 2,
-                         color='C{}'.format(c), alpha=.3)
-
-    for k, data in enumerate((opt_z[:, :, j], opt_zl[:, :, j])):
-        plt.plot(np.mean(data, 0), c='C{}'.format(4 + k),
-                 label=(r'BioNN optimize $z$', r'BioNN optimize $z$ & $l$')[k])
-        plt.fill_between(range(data.shape[1]), d(data, -1), d(data, +1),
-                         color='C{}'.format(4 + k), alpha=.3)
-
-    plt.xlabel('Iterations')
-    plt.ylabel(typ)
-    plt.xlim(0, T)
-    plt.legend()
+        opt_z = np.array([sim(run, .12, .0, .1) for run in range(10)])
+        opt_zl = np.array([sim(run, .1, .1, .1) for run in range(10)])
+        np.savez('results/reinforce.npz', opt_z=opt_z, opt_zl=opt_zl)
 
 
-for typ in ('RMSE', 'NLPD'):
-    plt.figure(figsize=(4.5, 4))
-    plot(typ, np.array([o[0] for o in opt_z]), np.array([o[0] for o in opt_zl]), T=1000)
+    # Plot results
+
+    def plot(typ, opt_z, opt_zl, T=1000):
+        j = ('RMSE', 'NLPD').index(typ)
+        try:
+            perf = np.load('results/performance_snelson.npz')['perf'][:, 3, :, 1 + j]
+        except FileNotFoundError:
+            print('please run fig3_snelson.py first')
+
+        def d(x, pm=-1):
+            return np.mean(x, 0) + pm * np.std(x, 0) / np.sqrt(len(x) - 1)
+
+        for c, label in ((0, 'GP'), (1, 'VFE')):
+            plt.axhline(np.mean(perf[:, c]), c='C{}'.format(c), label=label)
+            plt.fill_between((0, T), [d(perf[:, c], -1)] * 2, [d(perf[:, c], +1)] * 2,
+                             color='C{}'.format(c), alpha=.3)
+
+        for k, data in enumerate((opt_z[:, :, j], opt_zl[:, :, j])):
+            plt.plot(np.mean(data, 0), c='C{}'.format(4 + k),
+                     label=(r'BioNN optimize $z$', r'BioNN optimize $z$ & $l$')[k])
+            plt.fill_between(range(data.shape[1]), d(data, -1), d(data, +1),
+                             color='C{}'.format(4 + k), alpha=.3)
+
+        plt.xlabel('Iterations')
+        plt.ylabel(typ)
+        plt.xlim(0, T)
+        plt.legend()
+
+
+    for typ in ('RMSE', 'NLPD'):
+        plt.figure(figsize=(4.5, 4))
+        plot(typ, np.array([o[0] for o in opt_z]), np.array([o[0] for o in opt_zl]), T=1000)
+        plt.tight_layout(.05)
+        plt.savefig('fig/reinforce-' + typ + '.pdf', transparent=True)
+
+
+    # Plot fit for an example 50:50 train/test split
+    np.random.seed(10)
+    idx_train = np.sort(np.random.choice(range(N), N // 2, False))
+    idx_test = np.sort(np.setdiff1d(range(N), idx_train))
+    Xtrain = X[idx_train]
+    Ytrain = Y[idx_train]
+    Xtest = X[idx_test]
+    Ytest = Y[idx_test]
+
+    # treat full GP on full data as ground truth
+    truth = GPy.models.GPRegression(X, Y, GPy.kern.RBF(1))
+    truth.optimize()
+
+    full = GPy.models.GPRegression(Xtrain, Ytrain, GPy.kern.RBF(1))
+    full.optimize()
+    fitc = GPy.models.SparseGPRegression(Xtrain, Ytrain, GPy.kern.RBF(1), num_inducing=6)
+    fitc.inference_method = GPy.inference.latent_function_inference.FITC()
+    fitc.optimize()
+    vfe = GPy.models.SparseGPRegression(Xtrain, Ytrain, GPy.kern.RBF(1), Z=fitc.inducing_inputs)
+    vfe.Gaussian_noise.variance = full.Gaussian_noise.variance.values
+    vfe.optimize()
+
+
+    kern = GPy.kern.RBF(1, lengthscale=vfe.kern.lengthscale.values)
+    nn_vfe = BioNN(Xtrain, Ytrain, lambda x: kern.K(x, vfe.Z))
+    nn_z = sim(10, .12, .0, .1, True)[-1]
+    nn_zl = sim(10, .1, .1, .1, True)[-1]
+
+
+    plt.rc('lines', linewidth=1.5)
+
+    plt.figure(figsize=(9, 4))
+    xmin, xmax = X.min(0), X.max(0)
+    test = np.linspace(xmin - .05 * (xmax - xmin), xmax + .05 * (xmax - xmin), 200)
+    plt.scatter(Xtrain, Ytrain, marker='x', c='k', s=18, label='Training Data')
+    plt.scatter(Xtest, Ytest, marker='x', c='r', s=18, label='Test Data')
+    for m, label, c in ((nn_vfe, 'BioNN', 'C2'), (nn_z, 'BioNN optimize $z$', 'C4'),
+                        (nn_zl, 'BioNN optimize $z$ & $l$', 'C5'), (truth, '"Truth"', 'k')):
+        plt.plot(test, m.predict(test)[0], c=c, lw=2.5, label=label, zorder=-10 if c == 'k' else 0)
+        for k in (-2, 2):
+            plt.plot(test, m.predict(test)[0] +
+                     k * np.sqrt(m.predict(test)[1]), c=c, lw=1.5, zorder=-10 if c == 'k' else 0)
+    vfe.plot_inducing(ax=plt.gca(), label=None, color='C2', s=700)
+    tmp = GPy.models.SparseGPRegression(X, Y, GPy.kern.RBF(1), Z=nn_z.inducing_inputs)
+    tmp.plot_inducing(ax=plt.gca(), label=None, color='C4', s=500)
+    tmp = GPy.models.SparseGPRegression(X, Y, GPy.kern.RBF(1), Z=nn_zl.inducing_inputs)
+    tmp.plot_inducing(ax=plt.gca(), label=None, color='C5', s=300)
+    plt.xlim(test[0], test[-1])
+    plt.yticks([])
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.legend(ncol=2, loc=(.36, .08))
     plt.tight_layout(.05)
-    plt.savefig('fig/reinforce-' + typ + '.pdf', transparent=True)
-
-
-# Plot fit for an example 50:50 train/test split
-np.random.seed(10)
-idx_train = np.sort(np.random.choice(range(N), N // 2, False))
-idx_test = np.sort(np.setdiff1d(range(N), idx_train))
-Xtrain = X[idx_train]
-Ytrain = Y[idx_train]
-Xtest = X[idx_test]
-Ytest = Y[idx_test]
-
-# treat full GP on full data as ground truth
-truth = GPy.models.GPRegression(X, Y, GPy.kern.RBF(1))
-truth.optimize()
-
-full = GPy.models.GPRegression(Xtrain, Ytrain, GPy.kern.RBF(1))
-full.optimize()
-fitc = GPy.models.SparseGPRegression(Xtrain, Ytrain, GPy.kern.RBF(1), num_inducing=6)
-fitc.inference_method = GPy.inference.latent_function_inference.FITC()
-fitc.optimize()
-vfe = GPy.models.SparseGPRegression(Xtrain, Ytrain, GPy.kern.RBF(1), Z=fitc.inducing_inputs)
-vfe.Gaussian_noise.variance = full.Gaussian_noise.variance.values
-vfe.optimize()
-
-
-kern = GPy.kern.RBF(1, lengthscale=vfe.kern.lengthscale.values)
-nn_vfe = BioNN(Xtrain, Ytrain, lambda x: kern.K(x, vfe.Z))
-nn_z = sim(10, .12, .0, .1, True)[-1]
-nn_zl = sim(10, .1, .1, .1, True)[-1]
-
-
-plt.rc('lines', linewidth=1.5)
-
-plt.figure(figsize=(9, 4))
-xmin, xmax = X.min(0), X.max(0)
-test = np.linspace(xmin - .05 * (xmax - xmin), xmax + .05 * (xmax - xmin), 200)
-plt.scatter(Xtrain, Ytrain, marker='x', c='k', s=18, label='Training Data')
-plt.scatter(Xtest, Ytest, marker='x', c='r', s=18, label='Test Data')
-for m, label, c in ((nn_vfe, 'BioNN', 'C2'), (nn_z, 'BioNN optimize $z$', 'C4'),
-                    (nn_zl, 'BioNN optimize $z$ & $l$', 'C5'), (truth, '"Truth"', 'k')):
-    plt.plot(test, m.predict(test)[0], c=c, lw=2.5, label=label, zorder=-10 if c == 'k' else 0)
-    for k in (-2, 2):
-        plt.plot(test, m.predict(test)[0] +
-                 k * np.sqrt(m.predict(test)[1]), c=c, lw=1.5, zorder=-10 if c == 'k' else 0)
-vfe.plot_inducing(ax=plt.gca(), label=None, color='C2', s=700)
-tmp = GPy.models.SparseGPRegression(X, Y, GPy.kern.RBF(1), Z=nn_z.inducing_inputs)
-tmp.plot_inducing(ax=plt.gca(), label=None, color='C4', s=500)
-tmp = GPy.models.SparseGPRegression(X, Y, GPy.kern.RBF(1), Z=nn_zl.inducing_inputs)
-tmp.plot_inducing(ax=plt.gca(), label=None, color='C5', s=300)
-plt.xlim(test[0], test[-1])
-plt.yticks([])
-plt.xlabel('x')
-plt.ylabel('y')
-plt.legend(ncol=2, loc=(.36, .08))
-plt.tight_layout(.05)
-plt.savefig('fig/reinforce-fit.pdf')
+    plt.savefig('fig/reinforce-fit.pdf')
