@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import GPy
-from GPnet import RMSE, NLPD, logpdf
+from GPnet import RMSE, NLPD
 from fig5_reinforce import BioNN
 
 
@@ -62,14 +62,14 @@ nn = BioNN(X, Y, lambda x: kern.K(x, u))
 # plot
 segment = (angle - 2 * np.pi / 12) % (2 * np.pi) * 6 // (2 * np.pi) - 2
 
-fig = plt.figure(figsize=(1.4, 4))
-fig.add_axes([.53, .16, .4, .835])
+fig = plt.figure(figsize=(1.8, 4))
+fig.add_axes([.4, .16, .54, .835])
 plt.scatter(range(-2, 4), np.histogram(segment, np.arange(-2.5, 4.5))[0], c='k')
-plt.axhline(100 / 6., c='k')
-plt.ylim(0, 39)
+plt.axhline(N / 6., c='k')
+plt.ylim(0, 87)
 plt.xlim(-3, 4)
 plt.xticks([0, 3])
-plt.xlabel('Segment no')
+plt.xlabel('Segment no', x=.34)
 plt.ylabel('Number of data points')
 plt.savefig('fig/maze_time.pdf')
 
@@ -122,25 +122,33 @@ plt.tight_layout(0)
 plt.savefig('fig/maze_count.pdf')
 
 
+idx = np.concatenate([np.arange(N), np.arange(N // 10)])
+angle2 = np.concatenate([angle, angle[:N // 10] + 2 * np.pi])
 plt.figure(figsize=(6, 4))
-plt.scatter(angle, Y, label='data', c='k', s=12)
+plt.scatter(angle2, Y[idx], label='data', c='k', s=12)
 for c, m in enumerate((full, vfe, nn_vfe, nn)):
-    plt.plot(angle, m.predict(X)[0], '--' if c == 1 else '-',
+    plt.plot(angle2, m.predict(X)[0][idx], '--' if c == 1 else '-',
              c='C{}'.format(c if c < 3 else 4),
              label=('GP', 'VFE', 'BioNN', 'BioNN opt. z')[c], lw=3)
     for i in (-2, 2):
-        plt.plot(angle, m.predict(X)[0] + i * np.sqrt(m.predict(X)[1]),
+        plt.plot(angle2, m.predict(X)[0][idx] + i * np.sqrt(m.predict(X)[1][idx]),
                  '--' if c == 1 else '-',
                  c='C{}'.format(c if c < 3 else 4), lw=1.5)
-plt.plot(angle, F, c='k', label='Truth', lw=3, zorder=-5)
+plt.plot(angle2, F[idx], c='k', label='Truth', lw=3, zorder=-5)
 for (m, c, s) in ((vfe, 'C2', 700), (nn, 'C4', 500)):
     GPy.plotting.matplot_dep.plot_definitions.MatplotlibPlots().plot_axis_lines(
-        plt.gca(), np.arctan2(*m.inducing_inputs.T[::-1])[:, None] % (2 * np.pi),
+        plt.gca(), np.pi / 6 + (
+            (np.arctan2(*m.inducing_inputs.T[::-1])[:, None] - np.pi / 6) % (2 * np.pi)),
         s=s, color=c, label=None)
+for i in range(1, 12, 2):
+    plt.axvline(i / 6 * np.pi, lw=1, c='gray')
+    plt.text((i + .25) / 6 * np.pi, .63, i // 2 - 2, c='gray')
 plt.yticks([])
-plt.xticks(np.arange(5) / 2 * np.pi, [-180, -90, 0, 90, 180])
-plt.xlim(0, 2 * np.pi)
-plt.legend()
+plt.xticks(np.arange(5) / 2 * np.pi, ['-180°', '-90°', '0°', '90°', '180°'])
+plt.xlabel('Angular position')
+plt.ylabel('Value')
+plt.xlim(np.pi / 6, 13 / 6 * np.pi)
+plt.legend(loc=(.69, .45))
 plt.tight_layout(0)
 plt.savefig('fig/maze_fit.pdf')
 
