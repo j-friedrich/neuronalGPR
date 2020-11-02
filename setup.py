@@ -58,7 +58,15 @@ if not os.path.isdir('Probabilistic-Backpropagation-master/'):
     os.system('cd Probabilistic-Backpropagation-master/c/PBP_net ; chmod +x compile.sh ; ./compile.sh')
 
 
+# download streamingGP from Thang's repo
+if not os.path.isdir('streaming_sparse_gp-master/'):
+    r = requests.get(
+        'https://github.com/thangbui/streaming_sparse_gp/archive/master.zip', stream=True)
+    z = zipfile.ZipFile(io.BytesIO(r.content))
+    z.extractall()
+
+
 # create results directories if not existent yet
-for method in ('GP', 'VFE', 'FITC', 'BioNN', 'ANN', 'Dropout', 'PBP'):
+for method in ('GP', 'VFE', 'FITC', 'BioNN', 'ANN', 'Dropout', 'PBP', 'streamingGP'):
     os.makedirs('results/' + method, exist_ok=True)
 os.makedirs('fig', exist_ok=True)
