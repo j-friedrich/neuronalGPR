@@ -1,6 +1,6 @@
 # Neuronal Gaussian Process Regression
 
-This repository is the official implementation of [Neuronal Gaussian Process Regression](https://papers.nips.cc/paper/9932-neuronal-gaussian-process-regression). 
+This repository is the official implementation of [Neuronal Gaussian Process Regression](https://papers.nips.cc/paper/2020/hash/4ef2f8259495563cb3a8ea4449ec4f9f-Abstract.html). 
 
 ![Image of NN](https://github.com/j-friedrich/neuronalGPR/blob/master/fig.png)
 
